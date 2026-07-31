@@ -12,6 +12,36 @@ test.describe('Admin dashboard actions', () => {
     await expect(page).toHaveURL('/admin');
   });
 
+  test('should show admin overview metrics', async ({ page }) => {
+    await page.click('text=Overview');
+    await expect(page.locator('h1')).toHaveText('Overview');
+
+    await expect(page.locator('text=Students')).toBeVisible();
+    await expect(page.locator('text=Teachers')).toBeVisible();
+    await expect(page.locator('text=Classes')).toBeVisible();
+    await expect(page.locator('text=Subjects')).toBeVisible();
+    await expect(page.locator('text=Results recorded')).toBeVisible();
+  });
+
+  test('should create a teacher and verify it appears in the list', async ({ page }) => {
+    await page.click('text=Teachers');
+    await expect(page.locator('h1')).toHaveText('Teachers');
+
+    const randomSuffix = Date.now();
+    const name = `Playwright Teacher ${randomSuffix}`;
+    const email = `teacher.${randomSuffix}@school.edu.ng`;
+    const password = `TeachPass${randomSuffix.toString().slice(-4)}`;
+
+    await page.fill('div.field:has-text("Full name") input', name);
+    await page.fill('div.field:has-text("Email") input', email);
+    await page.fill('div.field:has-text("Temporary password") input', password);
+
+    await page.click('button:has-text("Add")');
+    await expect(page.locator('text=Teacher account created.')).toBeVisible();
+    await expect(page.locator(`text=${name}`)).toBeVisible();
+    await expect(page.locator(`text=${email}`)).toBeVisible();
+  });
+
   test('should create a student and verify it appears in the list', async ({ page }) => {
     await page.click('text=Students');
     await expect(page.locator('h1')).toHaveText('Students');

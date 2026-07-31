@@ -155,7 +155,7 @@ function Students({ token }) {
     }
   }
 
-  function exportStudentSlip(admissionNo) {
+  async function exportStudentSlip(admissionNo) {
     setError("");
     setSuccess("");
     try {

@@ -16,11 +16,12 @@ test.describe('Admin dashboard actions', () => {
     await page.click('text=Overview');
     await expect(page.locator('h1')).toHaveText('Overview');
 
-    await expect(page.locator('text=Students')).toBeVisible();
-    await expect(page.locator('text=Teachers')).toBeVisible();
-    await expect(page.locator('text=Classes')).toBeVisible();
-    await expect(page.locator('text=Subjects')).toBeVisible();
-    await expect(page.locator('text=Results recorded')).toBeVisible();
+    await expect(page.locator('nav.sidebar-nav >> a', { hasText: 'Students' })).toBeVisible();
+    await expect(page.locator('nav.sidebar-nav >> a', { hasText: 'Teachers' })).toBeVisible();
+    await expect(page.locator('nav.sidebar-nav >> a', { hasText: 'Classes & Subjects' })).toBeVisible();
+    await expect(page.locator('nav.sidebar-nav >> a', { hasText: 'Assignments' })).toBeVisible();
+    await expect(page.locator('nav.sidebar-nav >> a', { hasText: 'Terms' })).toBeVisible();
+    await expect(page.locator('nav.sidebar-nav >> a', { hasText: 'Results' })).toBeVisible();
   });
 
   test('should create a teacher and verify it appears in the list', async ({ page }) => {
@@ -50,10 +51,10 @@ test.describe('Admin dashboard actions', () => {
     const admissionNo = `STU/2025/${randomSuffix.toString().slice(-3)}`;
     const fullName = `Playwright Test ${randomSuffix}`;
 
-    const fullNameInput = page.locator('div.field', { hasText: 'Full name' }).locator('input');
-    const admissionNoInput = page.locator('div.field', { hasText: 'Admission no.' }).locator('input');
-    const classSelect = page.locator('div.field', { hasText: 'Class' }).locator('select');
-    const pinInput = page.locator('div.field', { hasText: 'PIN (4-6 digits)' }).locator('input');
+    const fullNameInput = page.locator('form.inline-form div.field', { hasText: 'Full name' }).locator('input');
+    const admissionNoInput = page.locator('form.inline-form div.field', { hasText: 'Admission no.' }).locator('input');
+    const classSelect = page.locator('form.inline-form div.field', { hasText: 'Class' }).locator('select');
+    const pinInput = page.locator('form.inline-form div.field', { hasText: 'PIN (4-6 digits)' }).locator('input');
 
     await expect(fullNameInput).toBeVisible();
     await expect(admissionNoInput).toBeVisible();
@@ -80,9 +81,28 @@ test.describe('Admin dashboard actions', () => {
     await expect(row).toBeVisible();
 
     await row.locator('input[type="checkbox"]').check();
-    await page.selectOption('select', { index: 2 });
+    await page.selectOption('div.field:has-text("Promote to class") select', { index: 1 });
     await page.click('button:has-text("Promote selected")');
 
     await expect(page.locator('text=student(s) promoted successfully.')).toBeVisible();
+  });
+
+  test('should export a student result slip as PDF', async ({ page }) => {
+    await page.click('text=Students');
+    await expect(page.locator('h1')).toHaveText('Students');
+
+    const firstRow = page.locator('table tbody tr').first();
+    await expect(firstRow).toBeVisible();
+
+    const admissionNo = await firstRow.locator('td').nth(2).innerText();
+
+    const [response] = await Promise.all([
+      page.waitForResponse((res) => res.url().includes('/api/admin/students/') && res.url().includes('/slip') && res.request().method() === 'GET'),
+      firstRow.locator('button:has-text("Export slip")').click(),
+    ]);
+
+    expect(response.status()).toBe(200);
+    const data = await response.json();
+    expect(data).toHaveProperty('admission_no', admissionNo);
   });
 });

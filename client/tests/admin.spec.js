@@ -104,5 +104,8 @@ test.describe('Admin dashboard actions', () => {
     expect(response.status()).toBe(200);
     const data = await response.json();
     expect(data).toHaveProperty('admission_no', admissionNo);
+    expect(data).toHaveProperty('rank');
+    expect(data).toHaveProperty('class_size');
+    expect(data.class_size).toBeGreaterThan(0);
   });
 });

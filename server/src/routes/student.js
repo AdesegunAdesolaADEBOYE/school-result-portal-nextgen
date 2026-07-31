@@ -28,6 +28,9 @@ router.get("/results", async (req, res) => {
   }
   if (!term) return res.json({ term: null, results: [], average: null });
 
+  const studentRow = await db.query("SELECT class_id FROM students WHERE id = $1", [req.user.id]);
+  const classId = studentRow.rows[0]?.class_id;
+
   const { rows } = await db.query(
     `SELECT r.*, sub.name AS subject_name, t.session, t.term AS term_label
      FROM results r
@@ -42,7 +45,28 @@ router.get("/results", async (req, res) => {
     ? Math.round((rows.reduce((sum, r) => sum + Number(r.total), 0) / rows.length) * 100) / 100
     : null;
 
-  res.json({ term: Number(term), results: rows, average });
+  let rank = null;
+  let class_size = 0;
+
+  if (classId && rows.length > 0) {
+    const rankRows = await db.query(
+      `SELECT r.student_id,
+              AVG(r.total) AS average_total,
+              rank() OVER (ORDER BY AVG(r.total) DESC) AS rank
+       FROM results r
+       JOIN students s ON s.id = r.student_id
+       WHERE s.class_id = $1 AND r.term_id = $2
+       GROUP BY r.student_id
+       ORDER BY average_total DESC`,
+      [classId, term]
+    );
+
+    class_size = rankRows.rowCount;
+    const found = rankRows.rows.find((row) => row.student_id === req.user.id);
+    rank = found ? Number(found.rank) : null;
+  }
+
+  res.json({ term: Number(term), results: rows, average, rank, class_size });
 });
 
 module.exports = router;

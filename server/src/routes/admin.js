@@ -152,8 +152,8 @@ router.get("/students", async (req, res) => {
 router.get("/students/:admission_no/slip", async (req, res) => {
   const { admission_no } = req.params;
   const { rows } = await db.query(
-    `SELECT s.full_name, s.admission_no, c.name AS class_name,
-            t.session, t.term AS term_label,
+    `SELECT s.id AS student_id, s.full_name, s.admission_no, c.id AS class_id, c.name AS class_name,
+            t.id AS term_id, t.session, t.term AS term_label,
             sub.name AS subject_name, r.ca_score, r.exam_score, r.total, r.grade, r.remark
      FROM students s
      LEFT JOIN results r ON r.student_id = s.id
@@ -185,7 +185,35 @@ router.get("/students/:admission_no/slip", async (req, res) => {
         grade: row.grade,
         remark: row.remark,
       })),
+    rank: null,
+    class_size: 0,
   };
+
+  const classId = rows[0].class_id;
+  const termId = rows[0].term_id;
+
+  if (classId && termId) {
+    const ranking = await db.query(
+      `SELECT student_id, avg_total
+       FROM (
+         SELECT r.student_id, AVG(r.total) AS avg_total
+         FROM results r
+         JOIN students s ON s.id = r.student_id
+         WHERE s.class_id = $1 AND r.term_id = $2
+         GROUP BY r.student_id
+       ) q
+       ORDER BY avg_total DESC`,
+      [classId, termId]
+    );
+
+    slip.class_size = ranking.rowCount;
+    const targetId = String(rows[0].student_id);
+    const rankIndex = ranking.rows.findIndex((row) => String(row.student_id) === targetId);
+    if (rankIndex !== -1) {
+      slip.rank = rankIndex + 1;
+    }
+  }
+
 
   res.json(slip);
 });

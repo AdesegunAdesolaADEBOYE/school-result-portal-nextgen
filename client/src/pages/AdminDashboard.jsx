@@ -173,7 +173,12 @@ function Students({ token }) {
       y += 18;
       doc.text(`Name: ${slip.full_name}`, margin, y);
       doc.text(`Admission No.: ${slip.admission_no}`, 420, y);
-      y += 26;
+      y += 18;
+      if (slip.rank !== null) {
+        doc.text(`Position: ${slip.rank} of ${slip.class_size}`, margin, y);
+        y += 18;
+      }
+      y += 8;
 
       doc.setFontSize(12);
       doc.text("Subject", margin, y);

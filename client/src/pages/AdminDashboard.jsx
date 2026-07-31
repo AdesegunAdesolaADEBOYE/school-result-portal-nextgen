@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { jsPDF } from "jspdf";
 import { api } from "../api";
 import { useAuth } from "../AuthContext";
 import DashboardLayout from "../components/DashboardLayout";
@@ -88,11 +89,16 @@ function Students({ token }) {
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
   const [form, setForm] = useState({ full_name: "", admission_no: "", class_id: "", pin: "" });
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [promotionClassId, setPromotionClassId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const load = useCallback(() => {
-    api.get("/admin/students", token).then(setStudents).catch((e) => setError(e.message));
+    api.get("/admin/students", token).then((data) => {
+      setStudents(data);
+      setSelectedIds([]);
+    }).catch((e) => setError(e.message));
     api.get("/admin/classes", token).then(setClasses).catch(() => {});
   }, [token]);
 
@@ -116,6 +122,91 @@ function Students({ token }) {
     if (!confirm("Remove this student and their results?")) return;
     await api.del(`/admin/students/${id}`, token);
     load();
+  }
+
+  function toggleSelection(id) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }
+
+  async function promoteSelected() {
+    if (selectedIds.length === 0) {
+      setError("Select at least one student to promote.");
+      return;
+    }
+    if (!promotionClassId) {
+      setError("Choose a destination class for promotion.");
+      return;
+    }
+    setError("");
+    setSuccess("");
+
+    try {
+      const { promoted } = await api.put(
+        "/admin/students/promote",
+        { student_ids: selectedIds, class_id: promotionClassId },
+        token
+      );
+      setSuccess(`${promoted} student(s) promoted successfully.`);
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  function exportStudentSlip(admissionNo) {
+    setError("");
+    setSuccess("");
+    try {
+      const slip = await api.get(`/admin/students/${encodeURIComponent(admissionNo)}/slip`, token);
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const margin = 40;
+      let y = 50;
+
+      doc.setFontSize(18);
+      doc.text("Result Slip", margin, y);
+      doc.setFontSize(11);
+      y += 24;
+      doc.text(`${slip.session} — ${slip.term}`, margin, y);
+      doc.text(`Class: ${slip.class_name}`, 420, y);
+      y += 18;
+      doc.text(`Name: ${slip.full_name}`, margin, y);
+      doc.text(`Admission No.: ${slip.admission_no}`, 420, y);
+      y += 26;
+
+      doc.setFontSize(12);
+      doc.text("Subject", margin, y);
+      doc.text("CA", 260, y);
+      doc.text("Exam", 320, y);
+      doc.text("Total", 380, y);
+      doc.text("Grade", 450, y);
+      y += 12;
+      doc.setLineWidth(0.5);
+      doc.line(margin, y, 555, y);
+      y += 16;
+
+      slip.results.forEach((row) => {
+        if (y > 760) {
+          doc.addPage();
+          y = 50;
+        }
+        doc.text(row.subject_name, margin, y);
+        doc.text(String(row.ca_score), 260, y);
+        doc.text(String(row.exam_score), 320, y);
+        doc.text(String(row.total), 380, y);
+        doc.text(row.grade, 450, y);
+        y += 18;
+      });
+
+      if (slip.results.length === 0) {
+        doc.text("No results available.", margin, y);
+      }
+
+      doc.save(`${slip.admission_no}-result-slip.pdf`);
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   return (
@@ -159,9 +250,29 @@ function Students({ token }) {
       </div>
 
       <div className="card">
+        <div className="inline-form" style={{ marginBottom: 16, gap: 12, alignItems: "center" }}>
+          <div className="field" style={{ flex: 1, minWidth: 220 }}>
+            <label>Promote to class</label>
+            <select value={promotionClassId} onChange={(e) => setPromotionClassId(e.target.value)}>
+              <option value="">Select destination</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button className="btn" type="button" onClick={promoteSelected}>
+            Promote selected
+          </button>
+          <div style={{ fontSize: "0.9rem", color: "var(--ink-soft)" }}>
+            Select students and move them to the next class in one action.
+          </div>
+        </div>
         <table>
           <thead>
             <tr>
+              <th></th>
               <th>Name</th>
               <th>Admission no.</th>
               <th>Class</th>
@@ -171,11 +282,21 @@ function Students({ token }) {
           <tbody>
             {students.map((s) => (
               <tr key={s.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(s.id)}
+                    onChange={() => toggleSelection(s.id)}
+                  />
+                </td>
                 <td>{s.full_name}</td>
                 <td style={{ fontFamily: "var(--font-mono)" }}>{s.admission_no}</td>
                 <td>{s.class_name}</td>
-                <td>
-                  <button className="btn danger" onClick={() => remove(s.id)}>
+                <td style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button className="btn secondary" type="button" onClick={() => exportStudentSlip(s.admission_no)}>
+                    Export slip
+                  </button>
+                  <button className="btn danger" type="button" onClick={() => remove(s.id)}>
                     Remove
                   </button>
                 </td>
@@ -183,7 +304,7 @@ function Students({ token }) {
             ))}
             {students.length === 0 && (
               <tr>
-                <td colSpan={4} className="empty-state">
+                <td colSpan={5} className="empty-state">
                   No students yet.
                 </td>
               </tr>

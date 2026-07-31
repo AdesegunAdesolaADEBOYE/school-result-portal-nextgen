@@ -71,4 +71,18 @@ test.describe('Admin dashboard actions', () => {
     await expect(page.locator(`text=${fullName}`)).toBeVisible();
     await expect(page.locator(`text=${admissionNo}`)).toBeVisible();
   });
+
+  test('should promote selected students to the next class', async ({ page }) => {
+    await page.click('text=Students');
+    await expect(page.locator('h1')).toHaveText('Students');
+
+    const row = page.locator('table tbody tr').first();
+    await expect(row).toBeVisible();
+
+    await row.locator('input[type="checkbox"]').check();
+    await page.selectOption('select', { index: 2 });
+    await page.click('button:has-text("Promote selected")');
+
+    await expect(page.locator('text=student(s) promoted successfully.')).toBeVisible();
+  });
 });

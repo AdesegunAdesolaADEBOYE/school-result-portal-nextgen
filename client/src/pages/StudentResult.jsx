@@ -65,6 +65,9 @@ export default function StudentResult() {
               <div>
                 <div className="name">{session.name}</div>
                 <div className="adm">{session.admission_no} · {session.className}</div>
+                {data.rank !== null && (
+                  <div className="rank">Position {data.rank} of {data.class_size}</div>
+                )}
               </div>
             </div>
 

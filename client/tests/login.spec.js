@@ -87,5 +87,6 @@ test.describe('Login flows', () => {
     await expect(page).toHaveURL('/result');
     await expect(page.locator('button:has-text("Sign out")')).toBeVisible();
     await expect(page.locator('text=Results Portal')).toBeVisible();
+    await expect(page.locator('text=Position')).toBeVisible();
   });
 });

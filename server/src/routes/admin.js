@@ -149,6 +149,75 @@ router.get("/students", async (req, res) => {
   res.json(rows);
 });
 
+router.get("/students/:admission_no/slip", async (req, res) => {
+  const { admission_no } = req.params;
+  const { rows } = await db.query(
+    `SELECT s.id AS student_id, s.full_name, s.admission_no, c.id AS class_id, c.name AS class_name,
+            t.id AS term_id, t.session, t.term AS term_label,
+            sub.name AS subject_name, r.ca_score, r.exam_score, r.total, r.grade, r.remark
+     FROM students s
+     LEFT JOIN results r ON r.student_id = s.id
+     LEFT JOIN subjects sub ON sub.id = r.subject_id
+     LEFT JOIN classes c ON c.id = s.class_id
+     LEFT JOIN terms t ON t.id = r.term_id
+     WHERE s.admission_no = $1
+     ORDER BY t.session DESC, t.term DESC, sub.name`,
+    [admission_no]
+  );
+
+  if (rows.length === 0) {
+    return res.status(404).json({ error: "Student slip data not found." });
+  }
+
+  const slip = {
+    full_name: rows[0].full_name,
+    admission_no: rows[0].admission_no,
+    class_name: rows[0].class_name,
+    session: rows[0].session,
+    term: rows[0].term_label,
+    results: rows
+      .filter((row) => row.subject_name)
+      .map((row) => ({
+        subject_name: row.subject_name,
+        ca_score: Number(row.ca_score),
+        exam_score: Number(row.exam_score),
+        total: Number(row.total),
+        grade: row.grade,
+        remark: row.remark,
+      })),
+    rank: null,
+    class_size: 0,
+  };
+
+  const classId = rows[0].class_id;
+  const termId = rows[0].term_id;
+
+  if (classId && termId) {
+    const ranking = await db.query(
+      `SELECT student_id, avg_total
+       FROM (
+         SELECT r.student_id, AVG(r.total) AS avg_total
+         FROM results r
+         JOIN students s ON s.id = r.student_id
+         WHERE s.class_id = $1 AND r.term_id = $2
+         GROUP BY r.student_id
+       ) q
+       ORDER BY avg_total DESC`,
+      [classId, termId]
+    );
+
+    slip.class_size = ranking.rowCount;
+    const targetId = String(rows[0].student_id);
+    const rankIndex = ranking.rows.findIndex((row) => String(row.student_id) === targetId);
+    if (rankIndex !== -1) {
+      slip.rank = rankIndex + 1;
+    }
+  }
+
+
+  res.json(slip);
+});
+
 router.post("/students", async (req, res) => {
   const { full_name, admission_no, class_id, pin } = req.body;
   if (!full_name || !admission_no || !class_id || !pin) {
@@ -173,6 +242,26 @@ router.post("/students", async (req, res) => {
 router.delete("/students/:id", async (req, res) => {
   await db.query("DELETE FROM students WHERE id = $1", [req.params.id]);
   res.status(204).end();
+});
+
+router.put("/students/promote", async (req, res) => {
+  const { student_ids, class_id } = req.body;
+  if (!Array.isArray(student_ids) || student_ids.length === 0 || !class_id) {
+    return res.status(400).json({ error: "student_ids and destination class_id are required." });
+  }
+
+  const validIds = student_ids.map((id) => Number(id)).filter((id) => Number.isInteger(id));
+  const destinationClassId = Number(class_id);
+  if (validIds.length === 0 || !Number.isInteger(destinationClassId)) {
+    return res.status(400).json({ error: "Valid student_ids and class_id are required." });
+  }
+
+  const { rowCount } = await db.query(
+    "UPDATE students SET class_id = $1 WHERE id = ANY($2::int[])",
+    [destinationClassId, validIds]
+  );
+
+  res.json({ promoted: rowCount });
 });
 
 // ---------- Teacher assignments ----------

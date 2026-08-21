@@ -88,6 +88,26 @@ npm run dev                # starts app on http://localhost:5173
 Open http://localhost:5173 — you'll land on the login screen with a **Staff
 login** tab (admin/teacher) and a **Check my result** tab (student/parent).
 
+### 3.3 Deploying the frontend to Vercel
+
+- Import this repository into Vercel and set the **Project Root** to `client/`.
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Add the environment variable `VITE_API_URL` with the value of your backend API, for example `https://results-portal-api.onrender.com/api`.
+- We've included a `vercel.json` at the repository root to make the build reproducible. It tells Vercel to use the `client/package.json` static build and output to `dist`.
+
+To test a production build locally before pushing:
+
+```bash
+cd client
+npm install
+npm run build
+# serve the built files (install a static server if you don't have one)
+npx serve dist
+```
+
+After deploying the frontend, copy the Vercel URL into the backend's `CLIENT_ORIGIN` environment variable and redeploy the backend so CORS allows the frontend to call the API.
+
 ## 4. Typical workflow
 
 1. Sign in as admin → add a class and a subject (or use the seeded ones) →

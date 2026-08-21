@@ -11,7 +11,8 @@ const app = express();
 
 const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
   .split(",")
-  .map((o) => o.trim());
+  .map((o) => o.trim())
+  .concat("https://school-result-portal-nextgen.vercel.app");
 
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());

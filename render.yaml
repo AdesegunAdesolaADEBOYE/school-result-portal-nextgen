@@ -1,0 +1,17 @@
+# Optional Render service definition. Import this file in Render's dashboard
+# when creating a new service, or use it as a reference when configuring
+# the web service manually.
+
+services:
+  - type: web
+    name: school-result-portal-api
+    env: node
+    plan: free
+    branch: improve-app
+    rootDir: server
+    buildCommand: "cd server && npm install"
+    startCommand: "cd server && npm run migrate && npm start"
+    # Do not commit secrets here. Add the following environment variables
+    # in the Render dashboard after creating the service:
+    # DATABASE_URL, DATABASE_SSL (true|false), JWT_SECRET, CLIENT_ORIGIN,
+    # SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD

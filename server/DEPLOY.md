@@ -33,6 +33,17 @@ After deploy
 - Health check: `GET https://<your-backend>/api/health` should return `{ ok: true }`.
 - Use the backend URL to set the frontend variable `VITE_API_URL` (e.g. `https://<your-backend>/api`) in Vercel.
 
+Resetting the admin password without deleting data
+
+If login returns `Incorrect email or password`, open the Render service **Shell** and run:
+
+```bash
+npm run reset-admin
+```
+
+This uses `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` from the service environment,
+creates or updates one admin account, and preserves existing students and results.
+
 If you want, I can:
 - Walk through the Render UI while you click, or
 - Accept Render/Railway API credentials and perform a fully automated deploy (only if you provide them).
